@@ -6,6 +6,7 @@ dependencies:
   - matplotlib
   - pyproj
   - pandas
+  - geopandas
   - jupyterlab
   - ipympl
   - meshio
