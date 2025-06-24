@@ -1,6 +1,5 @@
 *.h5
 *.geo_unrolled
-TokAvg.msh
 *.geojson
-UrahoroAvg.msh
+*.msh
 
