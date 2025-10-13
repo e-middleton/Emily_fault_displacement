@@ -61,6 +61,25 @@ def createDispSmoothMats(gps, numTri, beginIndices, endIndices, meshes) :
     smoothing_mat = np.delete(smoothing_mat, throw, axis=0)
     smoothing_mat = np.delete(smoothing_mat, throw, axis=1)
 
+    # test if elem are line elem instead of triangle
+    # may or may not work, not fully tested
+    bad_cols = np.isnan(disp_mat[0,:])
+    if np.sum(bad_cols != 0) :
+        bad_el = int(np.where(bad_cols)[0][0]/3)
+
+        raise RuntimeError("Flattened element in one of the meshes creating Nan values in displacement matrix. Bad element = ", bad_el)
+
+        # thing = bad_el - beginIndices[1]
+        # print(np.shape(np.unique(meshes[1]["points"][meshes[1]["verts"][thing,:],:],axis=0))[0])
+        # print(meshes[1]["verts"][thing,:])
+
+        # # Draw the fault 
+        # fig, ax = plt.subplots()
+        # ax.triplot(horiz["points"][:, 0], horiz["points"][:, 1], horiz["verts"], linewidth=0.25)
+        # ax.plot(horiz["centroids"][thing,0], horiz["centroids"][thing,1], "*r")
+        # ax.set_aspect("equal")
+        # plt.show()
+
     return disp_mat, smoothing_mat
 
 

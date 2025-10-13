@@ -158,6 +158,7 @@ def findContour(mesh, plane_depth) :
             m+=1 # increment row
 
     # triangles share legs, so points are repeated unnecessarily, this takes only the unique rows in the 2D array
+    # using pandas not numpy, because numpy will sort the columns, but that shuffles lon, lat pairs apart
     df = pd.DataFrame(depth_all, columns=["lon", "lat", "dep"])
     depth_contour = df.drop_duplicates(subset=["lon"]) 
     depth_contour = np.array(df.drop_duplicates(subset="lat")) # need to check both longitude and latitude for duplicates, otherwise mesh problems arise
