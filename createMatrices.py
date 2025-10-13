@@ -134,19 +134,64 @@ def findEdgeElem(cmi) :
 # create a constraint matrix for different elements in the fault and cmi meshes.
 # putting the row/col value for a mesh element = one means when it's multiplied 
 # by the estimated slip, the result is zero in the data vector, so the trivial answer is that slip must be zero 
-def constraintMatrix(index, constraintMatrix, containsTensile, shift=0) :
+def constraintMatrix(index, dispMat, containsTensile, shift=0) :
 
     # if the constraint matrix contains tensile slip, that means it is the cmi
     # and the cmi elements need to be shifted down columns by the fault elements
     if containsTensile :
+        constraintMatrix = np.zeros(((3*(len(index))), len(dispMat[0]))) # allocate space
         for i in range(len(index)):
             constraintMatrix[3*i, shift + 3*index[i]] = 1
             constraintMatrix[3*i +1, shift + 3*index[i]+1] = 1
             constraintMatrix[3*i +2, shift + 3*index[i]+2] = 1
 
     else :    
+        constraintMatrix = np.zeros(((2*(len(index))), len(dispMat[0]))) # allocate space
         for i in range(len(index)):
             constraintMatrix[2*i, shift+ 2*index[i]] = 1
             constraintMatrix[2*i +1, shift+ 2*index[i] +1] = 1
         
     return constraintMatrix
+
+
+# find the rows of elements to be constrained
+# and return those rows in an array to behave as indices
+# elem is a string for the dictionary key
+def findConstraintRows(mesh, elem, elem2="") :
+    index = np.nonzero(mesh[elem])[0].reshape(-1,1)
+
+    if (elem2 != "") :
+        index2 = np.nonzero(mesh[elem2])[0].reshape(-1,1)
+        return index, index2
+    else :
+        return index
+    
+
+# create the constraint matrix for each mesh, fault and cmi, based upon the elements
+# being constrainted, e.g., "top_elements" or "far_west"
+def constrain(mesh, elem1, elem2, dispMat, containsTensile, shift=0) :
+    idx, idx2 = findConstraintRows(mesh, elem1, elem2)  # returns a row index for each nonzero (true) val
+    matrix1 = constraintMatrix(idx, dispMat, containsTensile, shift) # allocates space and adds a 1 to 
+    matrix2 = constraintMatrix(idx2, dispMat, containsTensile, shift) # the elements where slip is constrained
+
+    constraint = np.vstack((matrix1, matrix2))
+    return constraint
+
+    
+
+
+
+# create indexing lists for use in filling out the weights vector
+# need to know when each element (fault vs cmi vs constraint) begins and ends in the assembled matrix
+def createIndexingLists(fault, cmi, constraintMatrix1, constraintMatrix2):
+
+    # account for the removal of tensile slip in the fault matrices
+    faultEnd = 2*len(fault["lon1"]) # end of fault elements in the assembled matrix
+    cmiEnd = faultEnd + 3*len(cmi["lon1"])
+    constraint1End = cmiEnd + len(constraintMatrix1[0:,])          # end of fault top constraint
+    constraint2End = constraint1End + len(constraintMatrix2[0:,])  # end of fault side constraint
+
+    elemBegin = [0, faultEnd, cmiEnd, constraint1End]
+    elemEnd = [faultEnd, cmiEnd, constraint1End, constraint2End]
+
+    return elemBegin, elemEnd

@@ -169,6 +169,8 @@ def findContour(mesh, plane_depth) :
 
 
 
+
+
 def clipFault(bool_mask, depth_all, tri_elem, node_combo, num_extra, plane_depth, mesh) :
 
     # create clipped fault mesh based upon CMI meshing, MUST have run CMI depth contour cell without changing anything, the order of elements in arrays is important
@@ -290,6 +292,14 @@ def clipFault(bool_mask, depth_all, tri_elem, node_combo, num_extra, plane_depth
     return fault
 
 
+
+
+
+
+
+
+
+
 def remeshFault(new_points, total_verts, mesh) :
     # remesh the clipped fault and interpolate depths based on original subduction zone mesh
 
@@ -355,3 +365,70 @@ def remeshFault(new_points, total_verts, mesh) :
     fault["points"][:,2] = new_depth_vals
 
     return fault
+
+
+
+# create a mesh of the CMI based on the depth contour, and the corner points
+# provided in the config file along with the clipping plane depth
+# writes the file, does NOT return the object
+def meshCmi(depthContour, minLon, minLat, planeDepth, filename="horiz") :
+
+    #sort points by increasing latitude
+    indicies = np.argsort(depthContour[:,1])
+    depthContour = depthContour[indicies]
+
+    # separately add on the corners of the CMI
+    # min lon and min lat defined at top
+    maxLat = np.max(depthContour[:,1]+2.5) # maximum latitude for corner
+
+    # corner points starting from lower left and moving counterclockwise
+    corner_points = np.array([[minLon, minLat, planeDepth], [depthContour[0,0], minLat, planeDepth], [minLon, maxLat, planeDepth], [np.max(depthContour[:,0]), maxLat, planeDepth]])
+
+    # total points along the perimiter of the CMI mesh
+    mesh_edge = np.concatenate((depthContour, corner_points))
+
+    cx = mesh_edge[:,0]
+    cy = mesh_edge[:,1]
+    cz = -1*mesh_edge[:,2] # depth is negative
+
+    ## BEGIN GMSH
+
+    char_len = 0.75 # smaller is good for degrees
+    n_points = np.shape(depthContour)[0] # number of depth contour points
+    num_lines = np.shape(mesh_edge)[0] #num lines is the same as the total number of points
+
+    if gmsh.isInitialized() == 0:
+        gmsh.initialize()
+    gmsh.option.setNumber("General.Verbosity", 0)
+    gmsh.clear()
+
+    # Define points
+    gmsh.model.geo.addPoint(cx[-4], cy[-4], cz[-4], char_len, 0) #lower left corner because corner points were added last in the mesh_points
+    gmsh.model.geo.addPoint(cx[-3], cy[-3], cz[-3], char_len, 1)
+    for j in range(int(n_points)): # depth contour points
+        gmsh.model.geo.addPoint(cx[j], cy[j], cz[j], char_len, j+2) 
+    gmsh.model.geo.addPoint(cx[-1], cy[-1], cz[-1], char_len, j+3) #upper right corner
+    gmsh.model.geo.addPoint(cx[-2], cy[-2], cz[-2], char_len, j+4) #upper left corner
+
+    # add lines between the points to complete the perimiter
+    for i in range(int(num_lines-1)):
+        gmsh.model.geo.addLine(i, i+1, i)
+    gmsh.model.geo.addLine(i+1, 0, i+1) #complete the loop
+
+    gmsh.model.geo.synchronize()
+
+    # define curve loop counterclockwise
+    gmsh.model.geo.addCurveLoop(list(range(0, i+2)), 1)
+    gmsh.model.geo.addPlaneSurface([1], 1)
+
+    # Finish writing geo attributes
+    gmsh.model.geo.synchronize()
+
+    gmsh.write(filename + '.geo_unrolled')
+
+    # Generate mesh
+    gmsh.model.mesh.generate(2) #meshed in spherical because the depth being in km isn't as important when it's flat
+
+    gmsh.write(filename + '.msh')
+    gmsh.finalize() 
+    return
