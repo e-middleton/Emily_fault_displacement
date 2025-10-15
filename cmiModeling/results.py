@@ -20,8 +20,8 @@ def slipDist(estSlip, gps, fault, cmi, vecScale, slipDist=False, saveFigures=Fal
     end_idx = 2* len(fault["lon1"]) #end of fault elem beginning of cmi elem
     slip_vals = [estSlip[slip_type:end_idx:2]/100, estSlip[slip_type+end_idx::3]/100] # dip slip values for fault and CMI, converted from cm to m
 
-    max_mag_f = np.abs(np.max(slip_vals[0]))
-    max_mag_h = np.abs(np.max(slip_vals[1]))
+    max_mag_f = np.max(np.abs(slip_vals[0]))
+    max_mag_h = np.max(np.abs(slip_vals[1]))
     if max_mag_f > max_mag_h:
         max_mag = max_mag_f
     else:
@@ -44,7 +44,7 @@ def slipDist(estSlip, gps, fault, cmi, vecScale, slipDist=False, saveFigures=Fal
     ax[0].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5)
     cbar1.set_label("Slip (m)")
     ax[0].set(xlim=(xmin-2, xmax), ylim=(ymin, ymax), aspect='equal')
-    ax[0].title.set_text("Fault Slip") #graph 1
+    ax[0].title.set_text("Fault Dip Slip") #graph 1
     ax[0].set_ylabel("Latitude")
     ax[0].set_xlabel("Longitude")
 
@@ -54,7 +54,7 @@ def slipDist(estSlip, gps, fault, cmi, vecScale, slipDist=False, saveFigures=Fal
     #ax[1].quiver(gps.lon, gps.lat, pred_disp[0::3], pred_disp[1::3], scale=vec_scale, color='r', label="predicted")
     ax[1].quiver(gps.lon, gps.lat, gps.east_vel, gps.north_vel, scale=vecScale, color='k', label='observed')
     ax[1].set(xlim=(xmin-2, xmax), ylim=(ymin, ymax), aspect='equal')
-    ax[1].title.set_text("CMI Slip") #graph 1
+    ax[1].title.set_text("CMI Dip Slip") #graph 1
     ax[1].set_ylabel("Latitude")
     ax[1].set_xlabel("Longitude")
 
@@ -200,8 +200,8 @@ def residualPlot(gps, predDisp, vecScale, saveFigures=False, residFig=False) :
 def maxSlipMag(estSlip, allElemBegin):
     slip_vals = [estSlip[0:allElemBegin[1]]/100, estSlip[allElemBegin[1]::]/100] # slip values for fault and CMI, converted from cm to m
 
-    maxFaultMag = np.abs(np.max(slip_vals[0]))
-    maxCmiMag = np.abs(np.max(slip_vals[1]))
+    maxFaultMag = np.max(np.abs(slip_vals[0]))
+    maxCmiMag = np.max(np.abs(slip_vals[1]))
 
     return maxFaultMag, maxCmiMag
 
@@ -256,6 +256,7 @@ def numericalData(estSlip, predDisp, gps, allElemBegin, fault, cmi, saveData):
     maxFaultMag, maxCmiMag = maxSlipMag(estSlip, allElemBegin)
     rmse = calcRMSE(predDisp, gps)
     faultMoment, cmiMoment = calcMoment(estSlip, allElemBegin, fault, cmi)
+    avgFaultRake, avgCmiRake = rakeCalc(estSlip, allElemBegin)
 
     print("Maximum magnitude of fault slip (m): ", maxFaultMag)
     print("Maximum magnitude of slip on cmi (m): ", maxCmiMag)
@@ -265,21 +266,54 @@ def numericalData(estSlip, predDisp, gps, allElemBegin, fault, cmi, saveData):
     print("Horiz moment: ", cmiMoment)
 
     print(f"root mean square residual: %.3f cm" % rmse)
+
+    print("weighted average fault rake: ", avgFaultRake)
+    print("weighted average cmi rake: ", avgCmiRake)
+
     # calc done in residual plotting
 
+    results = {}
+    results["faultMaxMag (m)"] = maxFaultMag
+    results["cmiMaxMag (m)"] = maxCmiMag
+    results["faultMoment"] = faultMoment
+    results["cmiMoment"] = cmiMoment
+    results["rmse (cm)"] = rmse
+    results["avgFaultRake (deg)"] = avgFaultRake
+    results["avgCmiRake (deg)"] = avgCmiRake
+
+
     if (saveData) :
-        results = ["Maximum magnitude of fault slip (m): " + str(maxFaultMag), "Maximum magnitude of slip on cmi (m): " + str(maxCmiMag), 
-                "Fault moment: " + str(faultMoment), "CMI moment: " + str(cmiMoment), "root mean square residual (cm): " + str(rmse)]
         with open("numericalResults.txt", "w") as file:
-            for item in results:
-                file.write("\n")
-                file.write(item + "\n")
+            file.write(json.dumps(results, indent=4, sort_keys=True))
 
     return
 
 
+# save current config settings for later reference
 def saveConfig(config):
     with open("configSettings.txt", 'w') as file:
         file.write(json.dumps(config, indent=4, sort_keys=True))
-        
+
     return
+
+
+# calculates the average rake value for the cmi and fault
+# using the slip magnitude to weight the rake value of the given element
+def rakeCalc(estSlip, allElemBegin) :
+    # Slip magnitude weighted average of rake # (lots of slip = we trust it more)
+    faultDipSlip = estSlip[1:allElemBegin[1]:2] # one for dip slip
+    faultStrikeSlip = estSlip[0:allElemBegin[1]:2] # zero for strike slip
+    faultSlipMag = np.sqrt(np.sum(np.vstack((np.square(faultDipSlip).reshape(1, -1), np.square(faultStrikeSlip).reshape(1,-1))), axis=0))
+
+    cmiDipSlip = estSlip[1+allElemBegin[1]::3]
+    cmiStrikeSlip = estSlip[0+allElemBegin[1]::3]
+    cmiSlipMag = np.sqrt(np.sum(np.vstack((np.square(cmiDipSlip).reshape(1, -1), np.square(cmiStrikeSlip).reshape(1,-1))), axis=0))
+
+    cmiRake = np.rad2deg(np.arctan(cmiDipSlip.flatten() / cmiStrikeSlip.flatten())) # (left lateral = 0 rake)
+    faultRake = np.rad2deg(np.arctan(faultDipSlip.flatten() / faultStrikeSlip.flatten()))
+
+    weightedCmiRake = np.average(cmiRake, weights=cmiSlipMag.flatten())
+    weightedFaultRake = np.average(faultRake, weights=faultSlipMag.flatten())
+
+    return weightedFaultRake, weightedCmiRake
+
