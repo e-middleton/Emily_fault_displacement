@@ -1,10 +1,10 @@
 import numpy as np
 import matplotlib.pyplot as plt
 import pandas as pd
-import os
+import json
 
 
-def slipDist(estSlip, gps, fault, cmi, vecScale, slipDist=False, saveFigures=False, figPath = "") :
+def slipDist(estSlip, gps, fault, cmi, vecScale, slipDist=False, saveFigures=False) :
 
     # plot for visualizing
     xmin = 122
@@ -59,17 +59,16 @@ def slipDist(estSlip, gps, fault, cmi, vecScale, slipDist=False, saveFigures=Fal
     ax[1].set_xlabel("Longitude")
 
     if saveFigures and slipDist:
-        plt.savefig('slip_dist.png') # save the figure
-        os.system('mv ./slip_dist.png ' + figPath) # move it into the test output folder
-
-    plt.show()
+        plt.savefig('slip_dist.pdf') # save the figure
+    
+    plt.close('all')
 
     return
 
 
 # plot displacements, including observed, predicted, and displacements separated
 # by the component (i.e., displacement from CMI and displacement from fault)
-def displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, saveFigures=False, allDisp =False, dispSep=False, ratio=False, figPath="") :
+def displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, saveFigures=False, allDisp =False, dispSep=False, ratioFig=False) :
     # calculate displacements by which components
 
     # square the components
@@ -77,7 +76,7 @@ def displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, saveF
     north_disp = np.square(predDisp[1::3]).reshape(1, -1)
 
     # add together north and east disp, sum down column, take square root for magnitude of horiz disp
-    total_disp = np.sqrt(np.sum(np.vstack((east_disp, north_disp)), axis=0))
+    totalDisp = np.sqrt(np.sum(np.vstack((east_disp, north_disp)), axis=0))
 
     # calc disp from cmi, beginning from the cmi elements to the end of the cmi elements
     cmi_disp = dispMat[:, allElemBegin[1]:allElemBegin[2]].dot(estSlip[allElemBegin[1]:allElemBegin[2]]) 
@@ -91,6 +90,7 @@ def displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, saveF
     fault_n = np.square(fault_disp[1::3]).reshape(1,-1)
     totalFaultDisp = np.sqrt(np.sum(np.vstack((fault_e, fault_n)), axis=0))
 
+    plotRatio(gps, totalCmiDisp, totalDisp, saveFigures, ratioFig)
 
     fig, ax = plt.subplots(1, 2, figsize=(10,5))
     Q= ax[0].quiver(gps.lon, gps.lat, gps.east_vel, gps.north_vel, scale=vecScale, color='k', label='observed')
@@ -107,8 +107,7 @@ def displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, saveF
     plt.title("Predicted Displacements (cm)")
 
     if saveFigures and allDisp:
-        plt.savefig('totalDisp.png')
-        os.system('mv ./totalDisp.png ' + figPath) # move it into the test output folder
+        plt.savefig('totalDisp.pdf')
 
 
     fig, ax = plt.subplots(1, 2, figsize=(10,5))
@@ -125,16 +124,15 @@ def displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, saveF
     plt.title("fault contribution")
 
     if saveFigures and dispSep:
-        plt.savefig('dispByComponent.png')
-        os.system('mv ./dispByComponent.png ' + figPath)
-
-    plt.show()
+        plt.savefig('dispByComponent.pdf')
+    
+    plt.close('all')
 
     return
 
 
 # plot the ratio of displacement due to cmi vs total displacements
-def plotRatio(gps, totalCmiDisp, totalDisp, saveFigures, ratioFig, figPath) :
+def plotRatio(gps, totalCmiDisp, totalDisp, saveFigures, ratioFig) :
     ratio = totalCmiDisp / totalDisp
     lon_corr = 1 # longitude correction hardcoded to 1
 
@@ -151,9 +149,137 @@ def plotRatio(gps, totalCmiDisp, totalDisp, saveFigures, ratioFig, figPath) :
                         label='Ratio of cmi:total', extend='both')
 
     if saveFigures and ratioFig:
-        plt.savefig("ratioCmiToTotal.png")
-        os.system("mv ./ratioCmiToTotal.png " + figPath)
+        plt.savefig("ratioCmiToTotal.pdf")
+    
+    plt.close('all')
 
-    plt.show()
+    return
 
+
+def residualPlot(gps, predDisp, vecScale, saveFigures=False, residFig=False) :
+    # calculate gps displacement residuals
+    # residual = actual - predicted
+
+    residuals = np.empty((len(gps.lon), 3))
+    actual = np.hstack((np.array(gps.east_vel).reshape(-1,1), np.array(gps.north_vel).reshape(-1,1), np.array(gps.up_vel).reshape(-1,1)))
+
+    # predicted / calculated values
+    calc_east = predDisp[0::3].flatten()
+    calc_north = predDisp[1::3].flatten()
+    calc_up = predDisp[2::3].flatten()
+
+    residuals[:,0] = actual[:,0] - calc_east
+    residuals[:,1] = actual[:,1] - calc_north
+    residuals[:,2] = actual[:,2] - calc_up
+
+
+    plt.close('all')
+    fig, ax = plt.subplots(1, 2, figsize=(10,5))
+    #ax.quiver(gps.lon, gps.lat, gps.east_vel, gps.north_vel, scale=vec_scale, color='k', label='observed')
+    Q = ax[0].quiver(gps.lon, gps.lat, residuals[:,0], residuals[:,1], scale=vecScale/20, color='r', label="residuals")
+    ax[0].quiverkey(Q, X=0.3, Y=0.8, U=5, label="5cm", labelpos='N', color='r')
+    #ax.quiver(gps.lon, gps.lat, data_vector[0:1497:3], data_vector[1:1497:3], scale=vec_scale, color='b')
+    ax[0].set_ylim([32.5, 45])
+    ax[0].set_xlim([129, 143])
+    ax[0].set_title("Residual displacements (horizontal)")
+
+    Q1 = ax[1].quiver(gps.lon, gps.lat, 0, residuals[:,2], scale=vecScale/20, color='r', label="residuals")
+    ax[1].quiverkey(Q1, X=0.3, Y=0.8, U=5, label='5 cm', labelpos='N', color='r')
+    ax[1].set_ylim([32.5, 45])
+    ax[1].set_xlim([129, 143])
+    plt.title("residual displacements (vertical)")
+
+    if saveFigures and residFig:
+        plt.savefig("residuals.pdf")
+    
+    plt.close('all')
+
+    return
+
+
+def maxSlipMag(estSlip, allElemBegin):
+    slip_vals = [estSlip[0:allElemBegin[1]]/100, estSlip[allElemBegin[1]::]/100] # slip values for fault and CMI, converted from cm to m
+
+    maxFaultMag = np.abs(np.max(slip_vals[0]))
+    maxCmiMag = np.abs(np.max(slip_vals[1]))
+
+    return maxFaultMag, maxCmiMag
+
+def calcRMSE(predDisp, gps):
+    residuals = np.empty((len(gps.lon), 3))
+    actual = np.hstack((np.array(gps.east_vel).reshape(-1,1), np.array(gps.north_vel).reshape(-1,1), np.array(gps.up_vel).reshape(-1,1)))
+
+    # predicted / calculated values
+    calc_east = predDisp[0::3].flatten()
+    calc_north = predDisp[1::3].flatten()
+    calc_up = predDisp[2::3].flatten()
+
+    residuals[:,0] = actual[:,0] - calc_east
+    residuals[:,1] = actual[:,1] - calc_north
+    residuals[:,2] = actual[:,2] - calc_up
+
+    # calc root mean square residuals
+    resid_sqr = np.square(residuals) # square all residuals
+    # Calculate the Mean Squared Error (MSE)
+    mse = np.mean(resid_sqr)
+    # Calculate the Root Mean Square Error (RMSE)
+    rmse = np.sqrt(mse)
+
+    return rmse
+
+def calcMoment(estSlip, allElemBegin, fault, cmi):
+    # calculate the moment for slip on fault vs slip on cmi
+    # moment = rigidity x area x slip
+
+    rigidity = 3e10 #N / m^2 (is this the same though for the CMI at depth?)
+
+    # allElemBegin[1] corresponds to the end of the fault elements and beginning of the cmi elements
+    # calc slip mag
+    fault_d_slip = np.square(estSlip[1:allElemBegin[1]:2]) # one for dip slip
+    fault_s_slip = np.square(estSlip[0:allElemBegin[1]:2]) # zero for strike slip
+    faultSlip = np.sqrt(np.sum(np.vstack((fault_d_slip, fault_s_slip))))
+
+    faultMoment = rigidity * (fault["area"]) * faultSlip
+    faultTotalMoment = np.sum(faultMoment) # in N / m^2
+
+    cmi_d_slip = np.square(estSlip[1+allElemBegin[1]::3])
+    cmi_s_slip = np.square(estSlip[0+allElemBegin[1]::3])
+    cmiSlip = np.sqrt(np.sum(np.vstack((cmi_d_slip, cmi_s_slip))))
+
+    cmiMoment = rigidity * (cmi["area"]) * cmiSlip
+    cmiTotalMoment = np.sum(cmiMoment)
+
+    return faultTotalMoment, cmiTotalMoment
+
+
+def numericalData(estSlip, predDisp, gps, allElemBegin, fault, cmi, saveData):
+    maxFaultMag, maxCmiMag = maxSlipMag(estSlip, allElemBegin)
+    rmse = calcRMSE(predDisp, gps)
+    faultMoment, cmiMoment = calcMoment(estSlip, allElemBegin, fault, cmi)
+
+    print("Maximum magnitude of fault slip (m): ", maxFaultMag)
+    print("Maximum magnitude of slip on cmi (m): ", maxCmiMag)
+    # calc done in slip distribution plotting
+
+    print("Fault moment: ", faultMoment)
+    print("Horiz moment: ", cmiMoment)
+
+    print(f"root mean square residual: %.3f cm" % rmse)
+    # calc done in residual plotting
+
+    if (saveData) :
+        results = ["Maximum magnitude of fault slip (m): " + str(maxFaultMag), "Maximum magnitude of slip on cmi (m): " + str(maxCmiMag), 
+                "Fault moment: " + str(faultMoment), "CMI moment: " + str(cmiMoment), "root mean square residual (cm): " + str(rmse)]
+        with open("numericalResults.txt", "w") as file:
+            for item in results:
+                file.write("\n")
+                file.write(item + "\n")
+
+    return
+
+
+def saveConfig(config):
+    with open("configSettings.txt", 'w') as file:
+        file.write(json.dumps(config, indent=4, sort_keys=True))
+        
     return

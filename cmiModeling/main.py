@@ -3,7 +3,7 @@ import numpy as np # Numerical analysis
 from prepareMeshes import findContour, meshCmi, expandMesh
 from createMatrices import findEdgeElem, createDispSmoothMats, createIndexingLists, constrain
 import celeri
-from results import slipDist, displacements
+from results import slipDist, displacements, residualPlot, numericalData, saveConfig
 import yaml, argparse
 from files_io import readMesh, readGPS
 from runInversion import runInversion, assembleWeights
@@ -45,8 +45,6 @@ def main() :
         config["results"]["testName"] = args.testName
 
     print(config)
-
-    figPath = "./_outputs/" + config["results"]["testName"]
 
     # ###  READ IN SUBDUCTION ZONE MESH AND PARSE BEFORE USING IT TO CREATE A DEPTH CONTOUR ###
 
@@ -149,9 +147,18 @@ def main() :
 
     # # VISUALIZE RESULTS
     vecScale = 2000
-    slipDist(estSlip, gps, fault, horiz, vecScale, config["results"]["saveFigures"], config["results"]["slipDist"], figPath)
-    # displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, config["results"]["saveFigures"], 
-    #               config["results"]["allDisp"], config["results"]["dispSep"], config["results"]["ratioFig"])
+    slipDist(estSlip, gps, fault, horiz, vecScale, config["results"]["saveFigures"], config["results"]["slipDist"])
+    # calls plotRatio
+    displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, config["results"]["saveFigures"], 
+                  config["results"]["allDisp"], config["results"]["dispSep"], config["results"]["ratioFig"])
+    residualPlot(gps, predDisp, vecScale, config["results"]["saveFigures"], config["results"]["residFig"])
+
+    # numerical data
+    numericalData(estSlip, predDisp, gps, allElemBegin, fault, horiz, config["results"]["saveData"])
+
+    # save config settings, just in case they're forgotten later and images are referenced
+    if (config["results"]["saveFigures"] or config["results"]["saveData"]):
+        saveConfig(config)
 
 
 if __name__ == "__main__":
