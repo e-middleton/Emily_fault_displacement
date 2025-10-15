@@ -22,17 +22,20 @@ then
     echo "Save data is true"
     python3 main.py "--saveFigures" "--saveData" $testName
     mv *.pdf ./_outputs/$testFile/
-    mv *.txt ./_outputs/$testFile/
+    mv numericalResults.txt ./_outputs/$testFile/
+    mv configSettings.txt ./_outputs/$testFile/
 
 elif [ "$saveFigs" == "True" ]; then
     echo "save figures is true"
     python3 main.py "--saveFigures" $testName
     mv *.pdf ./_outputs/$testFile/
+    mv configSettings.txt ./_outputs/$testFile/
 
 elif [ "saveData" == "True" ]; then
     echo "save data is true"
     python3 main.py "--saveData" $testName
-    mv *.txt ./_outputs/$testFile/
+    mv numericalResults.txt ./_outputs/$testFile/
+    mv configSettings.txt ./_outputs/$testFile/
 else
     python3 main.py $testName
 fi
