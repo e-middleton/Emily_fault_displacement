@@ -1,0 +1,10 @@
+
+Maximum magnitude of fault slip (m): 1.0268727233728576
+
+Maximum magnitude of slip on cmi (m): 0.67876771814683
+
+Fault moment: 6.610311362455635e+24
+
+CMI moment: 1.1387537623017746e+26
+
+root mean square residual (cm): 3.448548278222243

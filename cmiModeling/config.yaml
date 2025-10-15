@@ -10,7 +10,7 @@ smoothing :
   cmi : 4.0e+14
 
 cmi :
-  minLon : 125
+  minLon : 137
   minLat : 34
 
 constraint : 
@@ -28,8 +28,7 @@ results :
   saveFigures : False # true false figures saved to external directory
   slipDist : True # slip distribution figure
   dispSep : True  # displacements separated by component (from cmi, from fault)
-  allDisp : False # figure with total displacement, predicted and observed
-  crossFig : False  # cross cutting figure
+  allDisp : True # figure with total displacement, predicted and observed
   ratioFig : True # ratio of cmi displacement to total displacement
   residFig : True # displacement residuals figure
   saveData: False # numerical data
