@@ -1,6 +1,13 @@
 *.h5
 *.geo_unrolled
 *.geojson
-*.msh
 *.png
 *.pdf
+clipped_fault.msh
+cross_mesh.msh
+IshikariAvg.msh
+plane.msh
+TokAvg.msh
+urakawa_1982_2.msh
+urakawa_1982_3.msh
+urakawa_1982.msh
