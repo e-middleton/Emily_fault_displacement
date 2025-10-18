@@ -3,14 +3,14 @@ cmiDepth : 40 # cmi depth
 
 planeDepth : 40 # clipping plane for the subduction zone, same as cmiDepth unless using a "cold nose" model
 
-spatiallyVariable : True
+spatiallyVariable : False
 
 smoothing : 
-  fault : 1.0e+14
-  cmi : 4.0e+14
+  fault : 1.0e+13
+  cmi : 1.0e+15
 
 cmi :
-  minLon : 137
+  minLon : 125
   minLat : 34
 
 constraint : 

@@ -22,10 +22,10 @@
         "saveData": true,
         "saveFigures": true,
         "slipDist": true,
-        "testName": "test2"
+        "testName": "test3"
     },
     "smoothing": {
-        "cmi": 50000000000000.0,
+        "cmi": 100000000000000.0,
         "fault": 10000000000000.0
     },
     "spatiallyVariable": false

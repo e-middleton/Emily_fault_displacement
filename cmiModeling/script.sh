@@ -3,7 +3,7 @@
 
 saveFigs="True"
 saveData="True"
-testFile="test2"
+testFile="test5"
 testName="--testName=$testFile"
 
 # check if test file directory exists
