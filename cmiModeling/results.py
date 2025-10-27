@@ -172,7 +172,6 @@ def residualPlot(gps, predDisp, vecScale, saveFigures=False, residFig=False) :
     residuals[:,1] = actual[:,1] - calc_north
     residuals[:,2] = actual[:,2] - calc_up
 
-
     plt.close('all')
     fig, ax = plt.subplots(1, 2, figsize=(10,5))
     #ax.quiver(gps.lon, gps.lat, gps.east_vel, gps.north_vel, scale=vec_scale, color='k', label='observed')
@@ -196,6 +195,89 @@ def residualPlot(gps, predDisp, vecScale, saveFigures=False, residFig=False) :
 
     return
 
+
+# method to output plots similar in style to Diao et al.
+# observed displacement, cal_afterslip, cal_cmi, residual (horiz)
+def plotLikeDiao(gps, predDisp, vecScale, dispMat, estSlip, allElemBegin, saveFigures=False, ratioFig=False) :
+
+    residuals = np.empty((len(gps.lon), 3))
+    actual = np.hstack((np.array(gps.east_vel).reshape(-1,1), np.array(gps.north_vel).reshape(-1,1), np.array(gps.up_vel).reshape(-1,1)))
+
+    # predicted / calculated values
+    calc_east = predDisp[0::3].flatten()
+    calc_north = predDisp[1::3].flatten()
+    calc_up = predDisp[2::3].flatten()
+
+    residuals[:,0] = actual[:,0] - calc_east
+    residuals[:,1] = actual[:,1] - calc_north
+    residuals[:,2] = actual[:,2] - calc_up
+
+    coast = pd.read_csv("coastline.csv")
+    lon_corr = 1
+
+    # square the components
+    east_disp = np.square(predDisp[0::3]).reshape(1,-1)
+    north_disp = np.square(predDisp[1::3]).reshape(1, -1)
+
+    # add together north and east disp, sum down column, take square root for magnitude of horiz disp
+    totalDisp = np.sqrt(np.sum(np.vstack((east_disp, north_disp)), axis=0))
+
+    # calc disp from cmi, beginning from the cmi elements to the end of the cmi elements
+    cmi_disp = dispMat[:, allElemBegin[1]:allElemBegin[2]].dot(estSlip[allElemBegin[1]:allElemBegin[2]]) 
+    cmi_e = np.square(cmi_disp[0::3]).reshape(1,-1) # square components
+    cmi_n = np.square(cmi_disp[1::3]).reshape(1,-1)
+    totalCmiDisp = np.sqrt(np.sum(np.vstack((cmi_e, cmi_n)), axis=0))
+
+    # fault disp
+    fault_disp = dispMat[:, allElemBegin[0]:allElemBegin[1]].dot(estSlip[allElemBegin[0]:allElemBegin[1]])
+    fault_e = np.square(fault_disp[0::3]).reshape(1,-1) # square components
+    fault_n = np.square(fault_disp[1::3]).reshape(1,-1)
+    totalFaultDisp = np.sqrt(np.sum(np.vstack((fault_e, fault_n)), axis=0))
+
+    plotRatio(gps, totalCmiDisp, totalDisp, saveFigures, ratioFig)
+
+    fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(16, 6))
+
+    # OBSERVED DISPLACEMENTS
+    Q= ax[0].quiver(gps.lon, gps.lat, gps.east_vel, gps.north_vel, scale=vecScale, color='k', label='observed')
+    ax[0].quiverkey(Q, X = 0.3, Y=0.8, U=100, label='100 cm',labelpos='N', color='r')
+    ax[0].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
+    ax[0].set_title("Observed displacements (cm)")
+    ax[0].set_ylim([33, 43])
+    ax[0].set_xlim([129, 143])
+
+    # AFTERSLIP CONTRIBUTION # 
+
+    Q2 = ax[1].quiver(gps.lon, gps.lat, fault_disp[0::3], fault_disp[1::3], scale=vecScale, color='g', label="displacements from afterslip")
+    ax[1].quiverkey(Q2, X=0.3, Y=0.8, U=100, label="100 cm", labelpos='N', color='g')
+    ax[1].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
+    ax[1].set_ylim([33, 43])
+    ax[1].set_xlim([129, 143])
+    ax[1].set_title("Calculated Afterslip")
+
+    # CMI CONTRIBUTION # 
+
+    Q3 = ax[2].quiver(gps.lon, gps.lat, cmi_disp[0::3], cmi_disp[1::3], scale=vecScale, color='b', label="displacements from cmi slip")
+    ax[2].quiverkey(Q3, X=0.3, Y=0.8, U=100, label="100 cm", labelpos='N', color='b')
+    ax[2].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
+    ax[2].set_ylim([33, 43])
+    ax[2].set_xlim([129, 143])
+    ax[2].set_title("Calculated CMI slip")
+
+    
+    # RESIDUALS #
+
+    Q4 = ax[3].quiver(gps.lon, gps.lat, residuals[:,0], residuals[:,1], scale=vecScale/20, color='r', label="residuals")
+    ax[3].quiverkey(Q4, X=0.3, Y=0.8, U=5, label="5cm", labelpos='N', color='r')
+    ax[3].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
+    ax[3].set_ylim([33, 43])
+    ax[3].set_xlim([129, 143])
+    ax[3].set_title("Residual Displacements (horizontal)")
+
+    plt.savefig("diaoFormattedDisplacements.pdf")
+    plt.close('all')
+
+    return
 
 def maxSlipMag(estSlip, allElemBegin):
     slip_vals = [estSlip[0:allElemBegin[1]]/100, estSlip[allElemBegin[1]::]/100] # slip values for fault and CMI, converted from cm to m
@@ -303,14 +385,15 @@ def rakeCalc(estSlip, allElemBegin) :
     # Slip magnitude weighted average of rake # (lots of slip = we trust it more)
     faultDipSlip = estSlip[1:allElemBegin[1]:2] # one for dip slip
     faultStrikeSlip = estSlip[0:allElemBegin[1]:2] # zero for strike slip
-    faultSlipMag = np.sqrt(np.sum(np.vstack((np.square(faultDipSlip).reshape(1, -1), np.square(faultStrikeSlip).reshape(1,-1))), axis=0))
+    # faultSlipMag = np.sqrt(np.sum(np.vstack((np.square(faultDipSlip).reshape(1, -1), np.square(faultStrikeSlip).reshape(1,-1))), axis=0))
+    faultSlipMag = np.sqrt(np.square(faultDipSlip) + np.square(faultStrikeSlip))
 
     cmiDipSlip = estSlip[1+allElemBegin[1]::3]
     cmiStrikeSlip = estSlip[0+allElemBegin[1]::3]
     cmiSlipMag = np.sqrt(np.sum(np.vstack((np.square(cmiDipSlip).reshape(1, -1), np.square(cmiStrikeSlip).reshape(1,-1))), axis=0))
 
-    cmiRake = np.rad2deg(np.arctan(cmiDipSlip.flatten() / cmiStrikeSlip.flatten())) # (left lateral = 0 rake)
-    faultRake = np.rad2deg(np.arctan(faultDipSlip.flatten() / faultStrikeSlip.flatten()))
+    cmiRake = np.rad2deg(np.arctan2(cmiDipSlip.flatten(), cmiStrikeSlip.flatten())) # (left lateral = 0 rake)
+    faultRake = np.rad2deg(np.arctan2(faultDipSlip.flatten(), faultStrikeSlip.flatten()))
 
     weightedCmiRake = np.average(cmiRake, weights=cmiSlipMag.flatten())
     weightedFaultRake = np.average(faultRake, weights=faultSlipMag.flatten())

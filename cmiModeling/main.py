@@ -3,7 +3,7 @@ import numpy as np # Numerical analysis
 from prepareMeshes import findContour, meshCmi, expandMesh
 from createMatrices import findEdgeElem, createDispSmoothMats, createIndexingLists, constrain
 import celeri
-from results import slipDist, displacements, residualPlot, numericalData, saveConfig
+from results import slipDist, displacements, residualPlot, numericalData, saveConfig, plotLikeDiao
 import yaml, argparse
 from files_io import readMesh, readGPS
 from runInversion import runInversion, assembleWeights
@@ -145,12 +145,21 @@ def main() :
     # ### PERFORM INVERSION ###
     estSlip, predDisp = runInversion(assembledMat, dispMat, weights, dataVector)
 
+    with open('estSlip.npy', 'wb') as f:
+        np.save(f, estSlip)
+
+    with open('predDisp.npy', 'wb') as f:
+        np.save(f, predDisp)
+
+
     # # VISUALIZE RESULTS
     vecScale = 2000
     slipDist(estSlip, gps, fault, horiz, vecScale, config["results"]["saveFigures"], config["results"]["slipDist"])
     # calls plotRatio
-    displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, config["results"]["saveFigures"], 
-                  config["results"]["allDisp"], config["results"]["dispSep"], config["results"]["ratioFig"])
+    # displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, config["results"]["saveFigures"], 
+                  # config["results"]["allDisp"], config["results"]["dispSep"], config["results"]["ratioFig"])
+    
+    plotLikeDiao(gps, predDisp, vecScale, dispMat, estSlip, allElemBegin, config["results"]["saveFigures"], config["results"]["ratioFig"])
     residualPlot(gps, predDisp, vecScale, config["results"]["saveFigures"], config["results"]["residFig"])
 
     # numerical data
