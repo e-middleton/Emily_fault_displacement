@@ -13,3 +13,4 @@ urakawa_1982_3.msh
 urakawa_1982.msh
 configSettings.txt
 numericalResults.txt
+*.npy
