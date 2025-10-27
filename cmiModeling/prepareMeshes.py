@@ -80,34 +80,9 @@ def expandMesh(mesh) : # where mesh is a dictionary object
     mesh["dip_flag"] = mesh["dip"] != 90
 
     # calc mesh areas
-    # Convert coordinates
+    # area of a triangle in coord geometry =  (1/2) |x1(y2 − y3) + x2(y3 − y1) + x3(y1 − y2)|
 
-    # Hokkaido range
-    xs = np.linspace(120, 145, 200)
-    ys = np.linspace(40, 45, 200)
-
-    # Set up transformation ## LON_CORR HARDCODED ##
-    lon_corr = 1
-    # Check longitude convention of mesh
-    if np.max(xs) > 180:
-        lon_corr = 0
-
-    utmzone=int(32700-(np.sign(np.mean(ys))+1)/2 * 100+np.floor((lon_corr*180 + np.mean(xs))/6) + 1)
-    target_crs = 'epsg:'+str(utmzone) # Coordinate system of the file
-    source_crs = 'epsg:4326' # Global lat-lon coordinate system
-    latlon_to_utm = pyproj.Transformer.from_crs(source_crs, target_crs)
-
-    meshxy = np.array(latlon_to_utm.transform(mesh["points"][:, 1], mesh["points"][:, 0])).T/1e3
-
-    cart_pts = np.zeros_like(mesh["points"])
-    cart_pts[:, 0:2] = meshxy
-    cart_pts[:, 2] = mesh["points"][:, 2]
-
-    cart_leg1 = cart_pts[mesh["verts"][:,1]] - cart_pts[mesh["verts"][:,0]]
-    cart_leg2 = cart_pts[mesh["verts"][:,2]] - cart_pts[mesh["verts"][:,1]]
-    mesh["cart_nv"] = np.cross(cart_leg1, cart_leg2)
-
-    mesh["area"] = ((np.linalg.norm(mesh["cart_nv"],axis=1))/2) * (1e6)
+    mesh["area"] = (1/2) * np.abs( (mesh["x1"]*(mesh["y2"] - mesh["y3"])) + (mesh["x2"]*(mesh["y3"]-mesh["y1"])) + (mesh["x3"]*(mesh["y1"] - mesh["y2"])) )
 
     return mesh # return the modified mesh dictionary
 
