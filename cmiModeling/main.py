@@ -3,9 +3,9 @@ import numpy as np # Numerical analysis
 from prepareMeshes import findContour, meshCmi, expandMesh
 from createMatrices import findEdgeElem, createDispSmoothMats, createIndexingLists, constrain
 import celeri
-from results import slipDist, displacements, residualPlot, numericalData, saveConfig, plotLikeDiao
+from results import slipDist, displacements, residualPlot, numericalData, saveConfig, plotLikeDiao, afterslip
 import yaml, argparse
-from files_io import readMesh, readGPS
+from files_io import readMesh, readGPS, getFilename
 from runInversion import runInversion, assembleWeights
 
 ### SET MODEL CHOICES ###
@@ -20,13 +20,20 @@ def parseArgs() :
     parser.add_argument("--saveFigures", action='store_true', help="Enable figure saving")
     parser.add_argument("--saveData", action='store_true', help="Enable numerical data saving")
     parser.add_argument("--testName", type=str, metavar='', help="Override test name")
+
+    parser.add_argument("--oldResults", action='store_true', help='Process the results of a past test.')
+    parser.add_argument("--resultFile", type=str, metavar='', help='Directory for the old test results.')
     return parser.parse_args()
 
 def main() :
     args = parseArgs()
 
-    with open(args.config, "r") as file :
-        config = yaml.safe_load(file)
+    if (args.oldResults) :
+        with open(args.resultFile + '/configSettings.txt', 'r') as file:
+            config = yaml.safe_load(file)
+    else: 
+        with open(args.config, "r") as file :
+            config = yaml.safe_load(file)
 
     # override with command line arguments if given
     if (args.planeDepth) :
@@ -43,6 +50,7 @@ def main() :
         config["results"]["saveData"] = True
     if (args.testName) :
         config["results"]["testName"] = args.testName
+
 
     print(config)
 
@@ -142,28 +150,37 @@ def main() :
 
     weights = assembleWeights(2, assembledMat, dispArray, smoothingWeights, allElemBegin, allElemEnd)
 
-    # ### PERFORM INVERSION ###
-    estSlip, predDisp = runInversion(assembledMat, dispMat, weights, dataVector)
+    if (args.oldResults) :
+        fileName = getFilename(config)
+        
+        with open(fileName + '/estSlip.npy', 'rb') as f:
+            estSlip = np.load(f)
+        with open(fileName + '/predDisp.npy', 'rb') as f:
+            predDisp = np.load(f)
 
-    with open('estSlip.npy', 'wb') as f:
-        np.save(f, estSlip)
+    else :
+        # ### PERFORM INVERSION ###
+        estSlip, predDisp = runInversion(assembledMat, dispMat, weights, dataVector)
 
-    with open('predDisp.npy', 'wb') as f:
-        np.save(f, predDisp)
+        with open('estSlip.npy', 'wb') as f:
+            np.save(f, estSlip)
+        with open('predDisp.npy', 'wb') as f:
+            np.save(f, predDisp)
 
 
     # # VISUALIZE RESULTS
-    vecScale = 2000
+    vecScale = 1500
     slipDist(estSlip, gps, fault, horiz, vecScale, config["results"]["saveFigures"], config["results"]["slipDist"])
     # calls plotRatio
     # displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, config["results"]["saveFigures"], 
                   # config["results"]["allDisp"], config["results"]["dispSep"], config["results"]["ratioFig"])
+    afterslip(estSlip=estSlip, fault=fault)
     
     plotLikeDiao(gps, predDisp, vecScale, dispMat, estSlip, allElemBegin, config["results"]["saveFigures"], config["results"]["ratioFig"])
-    residualPlot(gps, predDisp, vecScale, config["results"]["saveFigures"], config["results"]["residFig"])
+    # residualPlot(gps, predDisp, vecScale, config["results"]["saveFigures"], config["results"]["residFig"])
 
     # numerical data
-    numericalData(estSlip, predDisp, gps, allElemBegin, fault, horiz, config["results"]["saveData"])
+    # numericalData(estSlip, predDisp, gps, allElemBegin, fault, horiz, config["results"]["saveData"])
 
     # save config settings, just in case they're forgotten later and images are referenced
     if (config["results"]["saveFigures"] or config["results"]["saveData"]):

@@ -8,3 +8,9 @@ Wrappers/notebook for calculating displacement from fault slip
 #NOTE: Temporarily leaving out the tooHigh constraint (top 20 km of subduction zone) because I'm not sure it was properly implemented in the first place
 Originally : tooHigh = np.where(fault["centroids"][:,2]>-20)[0]
 #NOTE: Temporarily removing cross section figure from new python files, simplicity and no longer as relevant (?)
+
+To read in the results of past testing for new processing in cmiModeling, run
+python3 main.py "--oldResults" "--resultFile=/path/to/testing/file"
+
+
+GPS data is from the first 2 years after the earthquake.
