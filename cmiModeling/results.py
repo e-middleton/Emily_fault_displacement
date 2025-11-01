@@ -66,6 +66,50 @@ def slipDist(estSlip, gps, fault, cmi, vecScale, slipDist=False, saveFigures=Fal
     return
 
 
+def afterslip(estSlip, fault):
+     # plot for visualizing
+    xmin = 140
+    xmax = 148
+    ymin = 32
+    ymax = 48
+    plt.close('all')
+
+    coast = pd.read_csv("coastline.csv")
+    lon_corr = 1
+    # dip slip on the CMI represents east-west motion, where east is negative and west is positive
+    slip_type = 1 # 0 = strike slip 1 = dip slip, only for CMI, 2 (manual) is vertical/tensile
+    end_idx = 2* len(fault["lon1"]) #end of fault elem beginning of cmi elem
+    slip_vals = [estSlip[slip_type:end_idx:2]/100, estSlip[slip_type+end_idx::3]/100] # dip slip values for fault and CMI, converted from cm to m
+
+    maxMag = np.max(np.abs(slip_vals[0]))
+
+    fig, ax = plt.subplots(nrows=1, ncols=2, figsize=(12, 8))
+    rso = ax[0].tripcolor(fault["points"][:,0],
+                        fault["points"][:,1], 
+                        fault["verts"],
+                        facecolors=(slip_vals[0]).flatten(), 
+                        vmin=-maxMag, vmax=maxMag)
+    cbar1 = fig.colorbar(rso, ax=ax[0], orientation='vertical')
+    ax[0].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5)
+    cbar1.set_label("Slip (m)")
+    ax[0].set(xlim=(xmin-2, xmax), ylim=(ymin, ymax), aspect='equal')
+    ax[0].title.set_text("Fault Dip Slip") #graph 1
+    ax[0].set_ylabel("Latitude")
+    ax[0].set_xlabel("Longitude")
+
+    rso2 = ax[1].tripcolor(fault["points"][:,0], fault["points"][:,1], fault["verts"], facecolors=fault["centroids"][:,2])
+    cbar2 = fig.colorbar(rso2, ax=ax[1], orientation='vertical')
+    cbar2.set_label('Depth (km)')
+    ax[1].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5)
+    ax[1].set(xlim=(xmin-2, xmax), ylim=(ymin, ymax), aspect='equal')
+    ax[1].title.set_text("Fault depth") #graph 2
+
+    plt.savefig("afterslip.pdf")
+    plt.close('all')
+
+    return
+
+
 # plot displacements, including observed, predicted, and displacements separated
 # by the component (i.e., displacement from CMI and displacement from fault)
 def displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, saveFigures=False, allDisp =False, dispSep=False, ratioFig=False) :
@@ -111,17 +155,20 @@ def displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, saveF
 
 
     fig, ax = plt.subplots(1, 2, figsize=(10,5))
+    ax[0].quiver(gps.lon, gps.lat, fault_disp[0::3], fault_disp[1::3], scale=vecScale, color='r', label="fault contribution")
     Q2 = ax[0].quiver(gps.lon, gps.lat, cmi_disp[0::3], cmi_disp[1::3], scale=vecScale, color='b', label="cmi contribution")
-    ax[0].quiverkey(Q2, X=0.3, Y=0.8, U=100, label="100 cm", labelpos='N', color='b')
+    ax[0].quiverkey(Q2, X=0.3, Y=0.8, U=50, label="0.5 m", labelpos='N', color='b')
     ax[0].set_ylim([32.5, 45])
     ax[0].set_xlim([129, 143])
     ax[0].set_title("Cmi contribution")
+    ax[0].legend()
+    plt.show()
 
-    Q3 = ax[1].quiver(gps.lon, gps.lat, fault_disp[0::3], fault_disp[1::3], scale=vecScale, color='g', label="fault contribution")
-    ax[1].quiverkey(Q3, X=0.3, Y=0.8, U=100, label="100 cm", labelpos='N', color='g')
-    ax[1].set_ylim([32.5, 45])
-    ax[1].set_xlim([129, 143])
-    plt.title("fault contribution")
+    # Q3 = ax[1].quiver(gps.lon, gps.lat, fault_disp[0::3], fault_disp[1::3], scale=vecScale, color='g', label="fault contribution")
+    # ax[1].quiverkey(Q3, X=0.3, Y=0.8, U=100, label="100 cm", labelpos='N', color='g')
+    # ax[1].set_ylim([32.5, 45])
+    # ax[1].set_xlim([129, 143])
+    # plt.title("fault contribution")
 
     if saveFigures and dispSep:
         plt.savefig('dispByComponent.pdf')
@@ -236,42 +283,44 @@ def plotLikeDiao(gps, predDisp, vecScale, dispMat, estSlip, allElemBegin, saveFi
 
     plotRatio(gps, totalCmiDisp, totalDisp, saveFigures, ratioFig)
 
-    fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(16, 6))
+    fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(18, 5))
+
+    arrowWidth = 0.005
 
     # OBSERVED DISPLACEMENTS
-    Q= ax[0].quiver(gps.lon, gps.lat, gps.east_vel, gps.north_vel, scale=vecScale, color='k', label='observed')
-    ax[0].quiverkey(Q, X = 0.3, Y=0.8, U=100, label='100 cm',labelpos='N', color='r')
+    Q= ax[0].quiver(gps.lon, gps.lat, gps.east_vel, gps.north_vel, scale=vecScale, color='k', label='observed', width=arrowWidth)
+    ax[0].quiverkey(Q, X = 0.3, Y=0.8, U=100, label='100 cm',labelpos='N', color='k')
     ax[0].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
     ax[0].set_title("Observed displacements (cm)")
-    ax[0].set_ylim([33, 43])
-    ax[0].set_xlim([129, 143])
+    ax[0].set_ylim([35, 41])
+    ax[0].set_xlim([133, 144.5])
 
     # AFTERSLIP CONTRIBUTION # 
 
-    Q2 = ax[1].quiver(gps.lon, gps.lat, fault_disp[0::3], fault_disp[1::3], scale=vecScale, color='g', label="displacements from afterslip")
+    Q2 = ax[1].quiver(gps.lon, gps.lat, fault_disp[0::3], fault_disp[1::3], scale=vecScale, color='g', label="displacements from afterslip", width=arrowWidth)
     ax[1].quiverkey(Q2, X=0.3, Y=0.8, U=100, label="100 cm", labelpos='N', color='g')
     ax[1].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
-    ax[1].set_ylim([33, 43])
-    ax[1].set_xlim([129, 143])
+    ax[1].set_ylim([35, 41])
+    ax[1].set_xlim([133, 144.5])
     ax[1].set_title("Calculated Afterslip")
 
     # CMI CONTRIBUTION # 
 
-    Q3 = ax[2].quiver(gps.lon, gps.lat, cmi_disp[0::3], cmi_disp[1::3], scale=vecScale, color='b', label="displacements from cmi slip")
+    Q3 = ax[2].quiver(gps.lon, gps.lat, cmi_disp[0::3], cmi_disp[1::3], scale=vecScale, color='b', label="displacements from cmi slip", width=arrowWidth)
     ax[2].quiverkey(Q3, X=0.3, Y=0.8, U=100, label="100 cm", labelpos='N', color='b')
     ax[2].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
-    ax[2].set_ylim([33, 43])
-    ax[2].set_xlim([129, 143])
+    ax[2].set_ylim([35, 41])
+    ax[2].set_xlim([133, 144.5])
     ax[2].set_title("Calculated CMI slip")
 
     
     # RESIDUALS #
 
-    Q4 = ax[3].quiver(gps.lon, gps.lat, residuals[:,0], residuals[:,1], scale=vecScale/20, color='r', label="residuals")
+    Q4 = ax[3].quiver(gps.lon, gps.lat, residuals[:,0], residuals[:,1], scale=vecScale/20, color='r', label="residuals", width=arrowWidth)
     ax[3].quiverkey(Q4, X=0.3, Y=0.8, U=5, label="5cm", labelpos='N', color='r')
     ax[3].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
-    ax[3].set_ylim([33, 43])
-    ax[3].set_xlim([129, 143])
+    ax[3].set_ylim([35, 41])
+    ax[3].set_xlim([133, 144.5])
     ax[3].set_title("Residual Displacements (horizontal)")
 
     plt.savefig("diaoFormattedDisplacements.pdf")
@@ -399,4 +448,5 @@ def rakeCalc(estSlip, allElemBegin) :
     weightedFaultRake = np.average(faultRake, weights=faultSlipMag.flatten())
 
     return weightedFaultRake, weightedCmiRake
+
 
