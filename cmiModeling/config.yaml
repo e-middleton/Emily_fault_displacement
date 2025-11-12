@@ -1,13 +1,13 @@
 
-cmiDepth : 40 # cmi depth
+cmiDepth : 60 # cmi depth
 
-planeDepth : 40 # clipping plane for the subduction zone, same as cmiDepth unless using a "cold nose" model
+planeDepth : 60 # clipping plane for the subduction zone, same as cmiDepth unless using a "cold nose" model
 
 spatiallyVariable : False
 
 smoothing : 
-  fault : 1.0e+13
-  cmi : 1.0e+15
+  fault : 1.0e+14
+  cmi : 1.0e+12
 
 cmi :
   minLon : 125
@@ -17,7 +17,7 @@ constraint :
   faultEdge : 1.0e+4
   #faultSide : 1
   #faultUpper: 1 # upper 20 km
-  cmiEdge : 1.0e+2
+  cmiEdge : 5.0e+2
 
 inputs :
   fault : "japan.msh"
@@ -25,11 +25,11 @@ inputs :
   gps : "cumulative_disp.txt"
 
 results :
-  saveFigures : False # true false figures saved to external directory
+  saveFigures : True # true false figures saved to external directory
   slipDist : True # slip distribution figure
   dispSep : True  # displacements separated by component (from cmi, from fault)
   allDisp : True # figure with total displacement, predicted and observed
   ratioFig : True # ratio of cmi displacement to total displacement
   residFig : True # displacement residuals figure
-  saveData: False # numerical data
+  saveData: True # numerical data
   testName : ""
