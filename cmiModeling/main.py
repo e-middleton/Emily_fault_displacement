@@ -20,6 +20,7 @@ def parseArgs() :
     parser.add_argument("--saveFigures", action='store_true', help="Enable figure saving")
     parser.add_argument("--saveData", action='store_true', help="Enable numerical data saving")
     parser.add_argument("--testName", type=str, metavar='', help="Override test name")
+    parser.add_argument("--gpsFile", type=str, metavar='', help="Override gps file")
 
     parser.add_argument("--oldResults", action='store_true', help='Process the results of a past test.')
     parser.add_argument("--resultFile", type=str, metavar='', help='Directory for the old test results.')
@@ -50,7 +51,8 @@ def main() :
         config["results"]["saveData"] = True
     if (args.testName) :
         config["results"]["testName"] = args.testName
-
+    if (args.gpsFile) :
+        config["inputs"]["gps"] = args.gpsFile
 
     print(config)
 
@@ -172,15 +174,15 @@ def main() :
     vecScale = 1500
     slipDist(estSlip, gps, fault, horiz, vecScale, config["results"]["saveFigures"], config["results"]["slipDist"])
     # calls plotRatio
-    # displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, config["results"]["saveFigures"], 
-                  # config["results"]["allDisp"], config["results"]["dispSep"], config["results"]["ratioFig"])
+    displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, config["results"]["saveFigures"], 
+                config["results"]["allDisp"], config["results"]["dispSep"], config["results"]["ratioFig"])
     afterslip(estSlip=estSlip, fault=fault)
     
     plotLikeDiao(gps, predDisp, vecScale, dispMat, estSlip, allElemBegin, config["results"]["saveFigures"], config["results"]["ratioFig"])
-    # residualPlot(gps, predDisp, vecScale, config["results"]["saveFigures"], config["results"]["residFig"])
+    residualPlot(gps, predDisp, vecScale, config["results"]["saveFigures"], config["results"]["residFig"])
 
     # numerical data
-    # numericalData(estSlip, predDisp, gps, allElemBegin, fault, horiz, config["results"]["saveData"])
+    numericalData(estSlip, predDisp, gps, allElemBegin, fault, horiz, config["results"]["saveData"])
 
     # save config settings, just in case they're forgotten later and images are referenced
     if (config["results"]["saveFigures"] or config["results"]["saveData"]):
