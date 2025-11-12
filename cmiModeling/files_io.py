@@ -27,7 +27,7 @@ def readMesh(filename) :
 # read in gps data
 def readGPS(filename) :
     colnames = ["station_ID", 'lon', 'lat', 'east_vel', 'north_vel', 'up_vel']
-    gps = pd.read_table("./cumulative_disp.txt", sep='\s+', header=None, names=colnames)
+    gps = pd.read_table(filename, sep='\s+', header=None, names=colnames)
     return gps
 
 
