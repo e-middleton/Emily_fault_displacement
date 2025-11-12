@@ -153,22 +153,19 @@ def displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, saveF
     if saveFigures and allDisp:
         plt.savefig('totalDisp.pdf')
 
-
     fig, ax = plt.subplots(1, 2, figsize=(10,5))
-    ax[0].quiver(gps.lon, gps.lat, fault_disp[0::3], fault_disp[1::3], scale=vecScale, color='r', label="fault contribution")
     Q2 = ax[0].quiver(gps.lon, gps.lat, cmi_disp[0::3], cmi_disp[1::3], scale=vecScale, color='b', label="cmi contribution")
     ax[0].quiverkey(Q2, X=0.3, Y=0.8, U=50, label="0.5 m", labelpos='N', color='b')
     ax[0].set_ylim([32.5, 45])
     ax[0].set_xlim([129, 143])
     ax[0].set_title("Cmi contribution")
     ax[0].legend()
-    plt.show()
 
-    # Q3 = ax[1].quiver(gps.lon, gps.lat, fault_disp[0::3], fault_disp[1::3], scale=vecScale, color='g', label="fault contribution")
-    # ax[1].quiverkey(Q3, X=0.3, Y=0.8, U=100, label="100 cm", labelpos='N', color='g')
-    # ax[1].set_ylim([32.5, 45])
-    # ax[1].set_xlim([129, 143])
-    # plt.title("fault contribution")
+    Q3 = ax[1].quiver(gps.lon, gps.lat, fault_disp[0::3], fault_disp[1::3], scale=vecScale, color='g', label="fault contribution")
+    ax[1].quiverkey(Q3, X=0.3, Y=0.8, U=100, label="100 cm", labelpos='N', color='g')
+    ax[1].set_ylim([32.5, 45])
+    ax[1].set_xlim([129, 143])
+    plt.title("fault contribution")
 
     if saveFigures and dispSep:
         plt.savefig('dispByComponent.pdf')
