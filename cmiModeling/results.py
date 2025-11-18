@@ -242,7 +242,7 @@ def residualPlot(gps, predDisp, vecScale, saveFigures=False, residFig=False) :
 
 # method to output plots similar in style to Diao et al.
 # observed displacement, cal_afterslip, cal_cmi, residual (horiz)
-def plotLikeDiao(gps, predDisp, vecScale, dispMat, estSlip, allElemBegin, saveFigures=False, ratioFig=False) :
+def plotLikeDiao(gps, predDisp, vecScale, dispMat, estSlip, allElemBegin, numDays, saveFigures=False, ratioFig=False) :
 
     residuals = np.empty((len(gps.lon), 3))
     actual = np.hstack((np.array(gps.east_vel).reshape(-1,1), np.array(gps.north_vel).reshape(-1,1), np.array(gps.up_vel).reshape(-1,1)))
@@ -274,51 +274,55 @@ def plotLikeDiao(gps, predDisp, vecScale, dispMat, estSlip, allElemBegin, saveFi
 
     # fault disp
     fault_disp = dispMat[:, allElemBegin[0]:allElemBegin[1]].dot(estSlip[allElemBegin[0]:allElemBegin[1]])
-    fault_e = np.square(fault_disp[0::3]).reshape(1,-1) # square components
-    fault_n = np.square(fault_disp[1::3]).reshape(1,-1)
-    totalFaultDisp = np.sqrt(np.sum(np.vstack((fault_e, fault_n)), axis=0))
 
     plotRatio(gps, totalCmiDisp, totalDisp, saveFigures, ratioFig)
 
-    fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(18, 5))
+    fig, ax = plt.subplots(nrows=1, ncols=4, figsize=(22, 6), sharex=True, sharey=True)
 
-    arrowWidth = 0.005
+    arrowWidth = 0.004
 
     # OBSERVED DISPLACEMENTS
-    Q= ax[0].quiver(gps.lon, gps.lat, gps.east_vel, gps.north_vel, scale=vecScale, color='k', label='observed', width=arrowWidth)
-    ax[0].quiverkey(Q, X = 0.3, Y=0.8, U=100, label='100 cm',labelpos='N', color='k')
+    Q= ax[0].quiver(gps.lon, gps.lat, gps.east_vel/numDays, gps.north_vel/numDays, scale=vecScale, color='k', label='observed', width=arrowWidth)
+    ax[0].quiverkey(Q, X = 0.3, Y=0.8, U=0.5, label='5 mm d-1',labelpos='N', color='k')
     ax[0].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
     ax[0].set_title("Observed displacements (cm)")
     ax[0].set_ylim([35, 41])
-    ax[0].set_xlim([133, 144.5])
+    ax[0].set_xlim([135, 143])
+    ax[0].set_aspect('equal', adjustable='box')
 
     # AFTERSLIP CONTRIBUTION # 
 
-    Q2 = ax[1].quiver(gps.lon, gps.lat, fault_disp[0::3], fault_disp[1::3], scale=vecScale, color='g', label="displacements from afterslip", width=arrowWidth)
-    ax[1].quiverkey(Q2, X=0.3, Y=0.8, U=100, label="100 cm", labelpos='N', color='g')
+    Q2 = ax[1].quiver(gps.lon, gps.lat, fault_disp[0::3]/numDays, fault_disp[1::3]/numDays, scale=vecScale, color='g', label="displacements from afterslip", width=arrowWidth)
+    ax[1].quiverkey(Q2, X=0.3, Y=0.8, U=0.5, label="5 mm d-1", labelpos='N', color='g')
     ax[1].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
     ax[1].set_ylim([35, 41])
-    ax[1].set_xlim([133, 144.5])
+    ax[1].set_xlim([135, 143])
+    ax[1].set_aspect('equal', adjustable='box')
     ax[1].set_title("Calculated Afterslip")
 
     # CMI CONTRIBUTION # 
 
-    Q3 = ax[2].quiver(gps.lon, gps.lat, cmi_disp[0::3], cmi_disp[1::3], scale=vecScale, color='b', label="displacements from cmi slip", width=arrowWidth)
-    ax[2].quiverkey(Q3, X=0.3, Y=0.8, U=100, label="100 cm", labelpos='N', color='b')
+    Q3 = ax[2].quiver(gps.lon, gps.lat, cmi_disp[0::3]/numDays, cmi_disp[1::3]/numDays, scale=vecScale, color='b', label="displacements from cmi slip", width=arrowWidth)
+    ax[2].quiverkey(Q3, X=0.3, Y=0.8, U=0.5, label="5 mm d-1", labelpos='N', color='b')
     ax[2].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
     ax[2].set_ylim([35, 41])
-    ax[2].set_xlim([133, 144.5])
+    ax[2].set_xlim([135, 143])
+    ax[2].set_aspect('equal', adjustable='box')
     ax[2].set_title("Calculated CMI slip")
 
     
     # RESIDUALS #
 
-    Q4 = ax[3].quiver(gps.lon, gps.lat, residuals[:,0], residuals[:,1], scale=vecScale/20, color='r', label="residuals", width=arrowWidth)
-    ax[3].quiverkey(Q4, X=0.3, Y=0.8, U=5, label="5cm", labelpos='N', color='r')
+    Q4 = ax[3].quiver(gps.lon, gps.lat, residuals[:,0]/numDays, residuals[:,1]/numDays, scale=vecScale, color='r', label="residuals", width=arrowWidth)
+    ax[3].quiverkey(Q4, X=0.3, Y=0.8, U=0.5, label="5 mm d-1", labelpos='N', color='r')
     ax[3].plot(coast.lon+360*(1-lon_corr), coast.lat, color="k", linewidth=0.5) # coastline
     ax[3].set_ylim([35, 41])
-    ax[3].set_xlim([133, 144.5])
+    ax[3].set_xlim([135, 143])
+    ax[3].set_aspect('equal', adjustable='box')
     ax[3].set_title("Residual Displacements (horizontal)")
+    plt.xticks([136, 137, 138, 139, 140, 141, 142])  # Set label locations.
+
+    fig.subplots_adjust(wspace=0, hspace=0)
 
     plt.savefig("diaoFormattedDisplacements.pdf")
     plt.close('all')
