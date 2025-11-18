@@ -13,6 +13,6 @@ Originally : tooHigh = np.where(fault["centroids"][:,2]>-20)[0]
 
 To read in the results of past testing for new processing in cmiModeling, run
 python3 main.py "--oldResults" "--resultFile=/path/to/testing/file"
-
+***NOTE: the getFilename() method needs to be manually updated to the outputs folder for reading in old test results.
 
 GPS data is from the first 2 years after the earthquake, from Hu et al. doi:10.1186/1880-5981-66-106 
