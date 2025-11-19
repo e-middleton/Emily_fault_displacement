@@ -6,7 +6,7 @@ import celeri
 from results import slipDist, displacements, residualPlot, numericalData, saveConfig, plotLikeDiao, afterslip
 import yaml, argparse
 from files_io import readMesh, readGPS, getFilename
-from runInversion import runInversion, assembleWeights
+from runInversion import runInversion, assembleWeights, removeFaultContribution
 
 ### SET MODEL CHOICES ###
 
@@ -24,12 +24,15 @@ def parseArgs() :
 
     parser.add_argument("--oldResults", action='store_true', help='Process the results of a past test.')
     parser.add_argument("--resultFile", type=str, metavar='', help='Directory for the old test results.')
+
+    parser.add_argument("--afterslipReinvert", action='store_true', help="Invert for cmi after removing fault afterslip displacements.")
+    
     return parser.parse_args()
 
 def main() :
     args = parseArgs()
 
-    if (args.oldResults) :
+    if (args.oldResults or args.afterslipReinvert) :
         with open(args.resultFile + '/configSettings.txt', 'r') as file:
             config = yaml.safe_load(file)
     else: 
@@ -100,8 +103,23 @@ def main() :
 
     # function automatically removes tensile rows and columns from the subduction zone matrix in disp mat
     # and it then removes the corresponding rows and columns of smoothing mat, leaving it as a square matrix
+
+    # faultDispMat, faultSmoothingMat = createDispSmoothMats(gps=gps, numTri=len(fault["lon1"]), meshes=[meshes[0]], isFault=True)
+    # horizDispMat, horizSmoothingMat = createDispSmoothMats(gps=gps, numTri=len(horiz["lon1"]), meshes=[meshes[1]])
+
+    # # square matrix requires blocks of zeros to hold space
+    # upperRightBlock = np.zeros((len(faultSmoothingMat[0]), len(horizSmoothingMat[0])))
+    # lowerLeftBlock = np.zeros((len(horizSmoothingMat[0]), len(faultSmoothingMat[0])))
+
+    # faultRow = np.hstack((faultSmoothingMat, upperRightBlock))
+    # cmiRow = np.hstack((lowerLeftBlock, horizSmoothingMat))
+
+    # # stick together column wise
+    # dispMat = np.hstack((faultDispMat, horizDispMat))
+    # smoothingMat = np.vstack((faultRow, cmiRow))
     dispMat, smoothingMat = createDispSmoothMats(gps, np.sum(n_tri), elemBegin, elemEnd, meshes)
-        # *function should built-in test for flattened elements hopefully
+
+    # *function should built-in test for flattened elements hopefully
 
     # find elements on the minimum longitude and maximum latitude edge of the CMI to constraint slip on
     horiz = findEdgeElem(horiz)
@@ -152,13 +170,16 @@ def main() :
 
     weights = assembleWeights(2, assembledMat, dispArray, smoothingWeights, allElemBegin, allElemEnd)
 
-    if (args.oldResults) :
+    if (args.oldResults or args.afterslipReinvert) :
         fileName = getFilename(config)
         
+        print(fileName)
         with open(fileName + '/estSlip.npy', 'rb') as f:
             estSlip = np.load(f)
         with open(fileName + '/predDisp.npy', 'rb') as f:
             predDisp = np.load(f)
+        
+        print(np.shape(predDisp))
 
     else :
         # ### PERFORM INVERSION ###
@@ -169,22 +190,52 @@ def main() :
         with open('predDisp.npy', 'wb') as f:
             np.save(f, predDisp)
 
+    if (args.afterslipReinvert) :
+        newGps = removeFaultContribution(gps, estSlip, dispMat, allElemBegin)
+        # create new disp mat with only the cmi, ignoring the fault
+
+        # function wants elemBegin and meshes as lists, so the single data values are in brackets
+        newDispMat, newSmoothingMat = createDispSmoothMats(newGps, np.sum(n_tri), [elemBegin[1]], [elemEnd[1]], [meshes[1]])
+        # 0 shift because no fault elements
+        horizConstraint = constrain(horiz, "far_west", "far_north", newDispMat, True, 0)
+        newAssembledMat = np.vstack([newDispMat, newSmoothingMat, horizConstraint]) # stick constraint array as 3rd argument
+
+        newSmoothingWeights = [cmiSmoothing, config["constraint"]["cmiEdge"]] 
+
+        # Assemble weighting vector
+        # Allocate space for data vector
+        newDataVector = np.zeros((np.shape(newAssembledMat)[0], 1)) # by default, the rows corresponding to constraint array are initialized as zeros
+        # Vector of displacements
+        newDispArray = np.array([newGps.east_vel, newGps.north_vel, newGps.up_vel]).reshape((3,-1)).T.copy()
+        newDataVector[0:np.size(newDispArray)] = newDispArray.flatten().reshape(-1,1)
+
+        newWeights = assembleWeights(0, newAssembledMat, newDispArray, newSmoothingWeights, [0,allElemBegin[1]], [allElemBegin[1], allElemBegin[1]+len(horizConstraint[0:,])])
+
+        # re run the inversion but now only for cmi 
+        determinant = np.linalg.det(newAssembledMat.T * newWeights.T @ newAssembledMat)
+        if np.isclose(determinant, 0):
+            print("Matrix is singular or nearly singular.")
+        else:
+            estSlip, predDisp = runInversion(newAssembledMat, newDispMat, newWeights, newDataVector)
+    
 
     # # VISUALIZE RESULTS
-    vecScale = 1500
-    slipDist(estSlip, gps, fault, horiz, vecScale, config["results"]["saveFigures"], config["results"]["slipDist"])
-    # calls plotRatio
-    displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, config["results"]["saveFigures"], 
-                config["results"]["allDisp"], config["results"]["dispSep"], config["results"]["ratioFig"])
-    afterslip(estSlip=estSlip, fault=fault)
+    length = 0.2 # 5mm
+    scale = 0.2 # relative to cm, so 1cm vector scale = 1. 5mm vector scale = 0.5 etc.
+
+    # slipDist(estSlip, gps, fault, horiz, vecScale, config["results"]["saveFigures"], config["results"]["slipDist"])
+    # # calls plotRatio
+    # displacements(dispMat, allElemBegin, estSlip, predDisp, gps, vecScale, config["results"]["saveFigures"], 
+    #             config["results"]["allDisp"], config["results"]["dispSep"], config["results"]["ratioFig"])
+    # afterslip(estSlip=estSlip, fault=fault)
     
-    plotLikeDiao(gps, predDisp, vecScale, dispMat, estSlip, allElemBegin, config["results"]["saveFigures"], config["results"]["ratioFig"])
-    residualPlot(gps, predDisp, vecScale, config["results"]["saveFigures"], config["results"]["residFig"])
+    plotLikeDiao(gps, predDisp, length, scale, dispMat, estSlip, allElemBegin, 58, config["results"]["saveFigures"], False)
+    # residualPlot(gps, predDisp, vecScale, config["results"]["saveFigures"], config["results"]["residFig"])
 
-    # numerical data
-    numericalData(estSlip, predDisp, gps, allElemBegin, fault, horiz, config["results"]["saveData"])
+    # # numerical data
+    # numericalData(estSlip, predDisp, gps, allElemBegin, fault, horiz, config["results"]["saveData"])
 
-    # save config settings, just in case they're forgotten later and images are referenced
+    # # save config settings, just in case they're forgotten later and images are referenced
     if (config["results"]["saveFigures"] or config["results"]["saveData"]):
         saveConfig(config)
 
